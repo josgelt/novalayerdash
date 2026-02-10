@@ -59,7 +59,8 @@ export default function Dashboard() {
   const [importResult, setImportResult] = useState<{ imported: number; duplicates: number; duplicateIds: string[] } | null>(null);
 
   const [shippingImportOpen, setShippingImportOpen] = useState(false);
-  const [shippingImportResult, setShippingImportResult] = useState<{ updated: number; notFound: string[] } | null>(null);
+  const [shippingImportResult, setShippingImportResult] = useState<{ updated: number; notFound: string[]; fuzzyMatched: string[]; ambiguous: string[] } | null>(null);
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
 
   const buildQueryString = () => {
     const params = new URLSearchParams();
@@ -106,6 +107,20 @@ export default function Dashboard() {
     },
   });
 
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", "/api/orders");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setDeleteAllConfirm(false);
+      toast({ title: "Alle Bestellungen gelöscht" });
+    },
+    onError: () => {
+      toast({ title: "Fehler", description: "Löschen fehlgeschlagen", variant: "destructive" });
+    },
+  });
+
   const handleImport = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -148,7 +163,8 @@ export default function Dashboard() {
       const result = await res.json();
       setShippingImportResult(result);
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      if (result.notFound.length === 0) {
+      const hasIssues = (result.notFound?.length > 0) || (result.fuzzyMatched?.length > 0) || (result.ambiguous?.length > 0);
+      if (!hasIssues) {
         toast({ title: "Versandliste importiert", description: `${result.updated} Bestellungen aktualisiert` });
         setShippingImportOpen(false);
         setShippingImportResult(null);
@@ -200,7 +216,7 @@ export default function Dashboard() {
             <Package className="w-6 h-6 text-primary" />
             <h1 className="text-xl font-semibold tracking-tight" data-testid="text-header-title">Novalayer Order Dashboard</h1>
           </div>
-          <img src={logoPath} alt="Novalayer Logo" className="h-8 object-contain" data-testid="img-logo" />
+          <img src={logoPath} alt="Novalayer Logo" className="h-16 object-contain" data-testid="img-logo" />
         </div>
       </header>
 
@@ -322,6 +338,10 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <Button variant="destructive" onClick={() => setDeleteAllConfirm(true)} data-testid="button-delete-all">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Alle löschen
+              </Button>
               <Button variant="outline" onClick={() => setShippingImportOpen(true)} data-testid="button-import-shipping">
                 <Truck className="w-4 h-4 mr-2" />
                 Versandliste
@@ -536,8 +556,34 @@ export default function Dashboard() {
                     <span>{shippingImportResult.updated} Bestellungen aktualisiert</span>
                   </div>
                 )}
-                {shippingImportResult.notFound.length > 0 && (
+                {shippingImportResult.fuzzyMatched?.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm text-blue-600">
+                    <Search className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div>Über Name/Telefon/Ort zugeordnet:</div>
+                      <ul className="mt-1 text-xs font-mono">
+                        {shippingImportResult.fuzzyMatched.map((info) => (
+                          <li key={info}>{info}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                {shippingImportResult.ambiguous?.length > 0 && (
                   <div className="flex items-start gap-2 text-sm text-amber-600">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div>{shippingImportResult.ambiguous.length} Referenzen mehrdeutig (mehrere Treffer):</div>
+                      <ul className="mt-1 text-xs font-mono">
+                        {shippingImportResult.ambiguous.map((ref) => (
+                          <li key={ref}>{ref}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                {shippingImportResult.notFound.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm text-destructive">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                     <div>
                       <div>{shippingImportResult.notFound.length} Referenzen nicht gefunden:</div>
@@ -646,6 +692,28 @@ export default function Dashboard() {
               data-testid="button-confirm-delete"
             >
               Löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteAllConfirm} onOpenChange={setDeleteAllConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alle Bestellungen löschen?</DialogTitle>
+            <DialogDescription>
+              Möchtest du wirklich ALLE Bestellungen löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAllConfirm(false)}>Abbrechen</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteAllMutation.mutate()}
+              disabled={deleteAllMutation.isPending}
+              data-testid="button-confirm-delete-all"
+            >
+              {deleteAllMutation.isPending ? "Lösche..." : "Alle löschen"}
             </Button>
           </DialogFooter>
         </DialogContent>

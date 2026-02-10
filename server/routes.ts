@@ -283,17 +283,49 @@ export async function registerRoutes(
 
       let updated = 0;
       const notFound: string[] = [];
+      const fuzzyMatched: string[] = [];
+      const ambiguous: string[] = [];
       const today = new Date().toISOString().split("T")[0];
+
+      const allOrders = await storage.getAllOrders();
 
       for (const r of records) {
         const referenz = (r["Referenz"] || "").trim();
         if (!referenz) continue;
 
         const trackingNum = (r["Paketnummer Lieferant"] || "").trim();
-
         const carrier = (r["Lieferant"] || "").trim();
+        const csvName = (r["Name"] || "").trim().toLowerCase();
+        const csvPhone = (r["Tel"] || "").trim().replace(/[\s\-\+]/g, "");
+        const csvOrt = (r["Ort"] || "").trim().toLowerCase();
 
-        const matchingOrders = await storage.getOrdersByOrderId(referenz);
+        let matchingOrders = await storage.getOrdersByOrderId(referenz);
+
+        if (matchingOrders.length === 0 && (csvName || csvPhone)) {
+          const candidates = allOrders.filter((o) => {
+            const fullName = `${o.firstName} ${o.lastName}`.toLowerCase();
+            const orderPhone = (o.phone || "").replace(/[\s\-\+]/g, "");
+            const orderCity = (o.city || "").toLowerCase();
+
+            const nameMatch = csvName && fullName === csvName;
+            const phoneMatch = csvPhone && orderPhone && orderPhone.endsWith(csvPhone.slice(-6)) && csvPhone.slice(-6).length >= 6;
+            const cityMatch = csvOrt && orderCity === csvOrt;
+
+            if (nameMatch && phoneMatch) return true;
+            if (nameMatch && cityMatch) return true;
+            if (phoneMatch && cityMatch) return true;
+            return false;
+          });
+
+          if (candidates.length === 1) {
+            matchingOrders = candidates;
+            fuzzyMatched.push(`${referenz} → ${candidates[0].orderId} (${candidates[0].firstName} ${candidates[0].lastName})`);
+          } else if (candidates.length > 1) {
+            ambiguous.push(referenz);
+            continue;
+          }
+        }
+
         if (matchingOrders.length === 0) {
           notFound.push(referenz);
           continue;
@@ -310,7 +342,7 @@ export async function registerRoutes(
         }
       }
 
-      res.json({ updated, notFound });
+      res.json({ updated, notFound, fuzzyMatched, ambiguous });
     } catch (error) {
       console.error("Shipping import error:", error);
       res.status(500).json({ message: "Fehler beim Import der Versandliste" });
@@ -337,6 +369,15 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Fehler beim Löschen" });
+    }
+  });
+
+  app.delete("/api/orders", async (req, res) => {
+    try {
+      const count = await storage.deleteAllOrders();
+      res.json({ success: true, deleted: count });
+    } catch (error) {
+      res.status(500).json({ message: "Fehler beim Löschen aller Bestellungen" });
     }
   });
 

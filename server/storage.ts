@@ -11,10 +11,12 @@ export interface IStorage {
   }): Promise<Order[]>;
   getOrderByItemId(orderItemId: string): Promise<Order | undefined>;
   getOrdersByOrderId(orderId: string): Promise<Order[]>;
+  getAllOrders(): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   createOrders(orders: InsertOrder[]): Promise<{ imported: number; duplicates: number; duplicateIds: string[] }>;
   updateOrder(id: number, data: Partial<InsertOrder>): Promise<Order | undefined>;
   deleteOrder(id: number): Promise<boolean>;
+  deleteAllOrders(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -97,9 +99,19 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getAllOrders(): Promise<Order[]> {
+    return db.select().from(orders);
+  }
+
   async deleteOrder(id: number): Promise<boolean> {
     const result = await db.delete(orders).where(eq(orders.id, id));
     return true;
+  }
+
+  async deleteAllOrders(): Promise<number> {
+    const allOrders = await db.select().from(orders);
+    await db.delete(orders);
+    return allOrders.length;
   }
 }
 
