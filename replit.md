@@ -11,21 +11,23 @@ Order management dashboard for Amazon and eBay sellers. Import order files (TSV/
 
 ## Key Features
 - Import Amazon TSV and eBay CSV files with auto platform detection
-- Import shipping lists (CSV with Referenz matching orderId) to auto-fill carrier, tracking, shipper (LogoiX)
+- Import shipping lists (CSV with Referenz matching orderId + fuzzy matching via name/phone/city) to auto-fill carrier, tracking, shipper (LogoiX)
 - Duplicate check on order-item-id (unique constraint)
 - Filter by date range, country, platform, status (default: Offen) + full-text search
 - Versender dropdown per order (Senddrop, Sendcloud, LogoiX)
 - Auto status calculation: "Offen" until carrier + tracking + date are set, then "Versendet"
 - Edit shipping details (carrier, tracking number, date)
-- Delete orders with confirmation
+- Delete individual orders or all orders with confirmation
+- **Analyse tab**: Matrix table showing shipped article quantities per country (SKU rows, country columns, totals)
 
 ## Project Structure
 - `shared/schema.ts` - Drizzle schema for orders table
 - `server/db.ts` - Database connection
 - `server/storage.ts` - Storage interface with CRUD operations
 - `server/routes.ts` - API routes (GET/POST/PATCH/DELETE)
-- `client/src/pages/dashboard.tsx` - Main dashboard page
-- `client/src/App.tsx` - App entry with routing
+- `client/src/pages/dashboard.tsx` - Main dashboard page (Bestellungen tab)
+- `client/src/pages/analyse.tsx` - Analysis page with article-country matrix
+- `client/src/App.tsx` - App entry with routing and tab navigation
 
 ## API Endpoints
 - `GET /api/orders` - List orders with optional filters (dateFrom, dateTo, country, platform)
