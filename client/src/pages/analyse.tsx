@@ -32,6 +32,10 @@ function buildAnalysisData(orders: Order[]): { rows: ArticleRow[]; countries: st
       articleMap.set(key, row);
     }
 
+    if (productName !== "-" && (country === "DE" || country === "AT" || row.productName === "-")) {
+      row.productName = productName;
+    }
+
     row.countryCounts[country] = (row.countryCounts[country] || 0) + qty;
     row.total += qty;
   }
