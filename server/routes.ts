@@ -6,15 +6,29 @@ import { parse } from "csv-parse/sync";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-function detectPlatform(headers: string[]): "Amazon" | "eBay" | "unknown" {
-  const headerStr = headers.join(",").toLowerCase();
+function detectDelimiter(firstLine: string): string {
+  if (firstLine.includes("\t")) return "\t";
+  const semicolonCount = (firstLine.match(/;/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  return semicolonCount > commaCount ? ";" : ",";
+}
+
+function detectPlatform(headers: string[]): "Amazon" | "eBay" {
+  const headerStr = headers.join("|").toLowerCase();
   if (headerStr.includes("order-item-id") || headerStr.includes("purchase-date") || headerStr.includes("buyer-email")) {
     return "Amazon";
   }
-  if (headerStr.includes("ebay") || headerStr.includes("transaction id") || headerStr.includes("buyer username")) {
+  if (
+    headerStr.includes("bestellnummer") ||
+    headerStr.includes("verkaufsprotokollnummer") ||
+    headerStr.includes("käufer") ||
+    headerStr.includes("empfänger") ||
+    headerStr.includes("angebotstitel") ||
+    headerStr.includes("artikelnummer")
+  ) {
     return "eBay";
   }
-  return "unknown";
+  return "Amazon";
 }
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -36,20 +50,147 @@ function normalizeDate(dateStr: string): string {
   }
 }
 
-function parseFile(content: string): Record<string, string>[] {
-  const isTabSeparated = content.split("\n")[0].includes("\t");
-  const delimiter = isTabSeparated ? "\t" : ",";
+function parseEbayDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const match = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}T00:00:00.000Z`;
+  }
+  const match2 = dateStr.match(/(\w+)-(\d{2})-(\d{4})/i);
+  if (match2) {
+    const months: Record<string, string> = {
+      "Jan": "01", "Feb": "02", "Mär": "03", "Mar": "03", "Apr": "04",
+      "Mai": "05", "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
+      "Sep": "09", "Okt": "10", "Oct": "10", "Nov": "11", "Dez": "12", "Dec": "12"
+    };
+    const month = months[match2[1]] || "01";
+    return `${match2[3]}-${month}-${match2[2]}T00:00:00.000Z`;
+  }
+  return normalizeDate(dateStr);
+}
 
-  const records = parse(content, {
+function parsePrice(priceStr: string): string {
+  if (!priceStr) return "";
+  const cleaned = priceStr
+    .replace(/[€$£\s]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return priceStr;
+  return num.toFixed(2);
+}
+
+function parseFile(content: string): { records: Record<string, string>[]; delimiter: string } {
+  const lines = content.split("\n");
+  let headerLineIndex = 0;
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
+    const line = lines[i].trim();
+    if (line && !line.match(/^[;,\t\s"]*$/)) {
+      headerLineIndex = i;
+      break;
+    }
+  }
+
+  const headerLine = lines[headerLineIndex];
+  const delimiter = detectDelimiter(headerLine);
+
+  const contentToProcess = lines.slice(headerLineIndex).join("\n");
+
+  const records = parse(contentToProcess, {
     delimiter,
     columns: true,
     skip_empty_lines: true,
     relax_column_count: true,
     trim: true,
     bom: true,
+    quote: '"',
+  }) as Record<string, string>[];
+
+  const filtered = records.filter(r => {
+    const values = Object.values(r);
+    const nonEmpty = values.filter(v => v && v.trim());
+    return nonEmpty.length > 3;
   });
 
-  return records as Record<string, string>[];
+  return { records: filtered, delimiter };
+}
+
+function mapAmazonRecord(r: Record<string, string>): any {
+  const recipientName = r["recipient-name"] || r["buyer-name"] || "";
+  const { firstName, lastName } = splitName(recipientName);
+  const contactPerson = (r["ship-address-2"] || "").trim();
+  const customerType = contactPerson ? "Firma" : "Privat";
+
+  return {
+    platform: "Amazon",
+    purchaseDate: normalizeDate(r["purchase-date"] || ""),
+    orderId: r["order-id"] || "",
+    orderItemId: r["order-item-id"] || r["order-id"] || "",
+    email: r["buyer-email"] || "",
+    phone: r["buyer-phone-number"] || "",
+    firstName,
+    lastName,
+    street: r["ship-address-1"] || "",
+    contactPerson: contactPerson || null,
+    city: r["ship-city"] || "",
+    postalCode: r["ship-postal-code"] || "",
+    country: r["ship-country"] || "",
+    sku: r["sku"] || "",
+    productName: r["product-name"] || "",
+    quantity: parseInt(r["quantity-purchased"] || "1", 10) || 1,
+    price: parsePrice(r["item-price"] || r["price"] || "") || null,
+    shippingCost: parsePrice(r["shipping-price"] || r["shipping-fee"] || "") || null,
+    customerType,
+    shippingCarrier: null,
+    trackingNumber: null,
+    shippingDate: null,
+    status: "Offen",
+  };
+}
+
+function mapEbayRecord(r: Record<string, string>): any {
+  const recipientName = r["Name des Empfängers"] || r["Name des Käufers"] || "";
+  const { firstName, lastName } = splitName(recipientName);
+
+  const shippingAddress2 = (r["Adresse 2 des Empfängers"] || "").trim();
+  const buyerAddress2 = (r["Adresse 2 des Käufers"] || "").trim();
+  const contactPerson = shippingAddress2 || buyerAddress2 || "";
+  const customerType = contactPerson ? "Firma" : "Privat";
+
+  const orderId = r["Bestellnummer"] || "";
+  const salesRecordId = r["Verkaufsprotokollnummer"] || "";
+  const transactionId = r["Transaktionsnummer"] || "";
+  const lineItemId = salesRecordId || transactionId || orderId;
+  const orderItemId = lineItemId ? `ebay-${lineItemId}` : "";
+
+  const purchaseDateRaw = r["Verkauft am"] || r["Zahlungsdatum"] || "";
+  const purchaseDate = parseEbayDate(purchaseDateRaw);
+
+  return {
+    platform: "eBay",
+    purchaseDate,
+    orderId,
+    orderItemId,
+    email: r["E-Mail des Käufers"] || "",
+    phone: r["Telefonnummer des Empfängers"] || "",
+    firstName,
+    lastName,
+    street: r["Adresse 1 des Empfängers"] || r["Adresse 1 des Käufers"] || "",
+    contactPerson: contactPerson || null,
+    city: r["Versand nach - Ort"] || r["Wohnort des Käufers"] || "",
+    postalCode: r["Versand nach - PLZ"] || r["PLZ des Käufers"] || "",
+    country: r["Versand nach - Land"] || r["Land des Käufers"] || "",
+    sku: r["Bestandseinheit"] || "",
+    productName: r["Angebotstitel"] || "",
+    quantity: parseInt(r["Anzahl"] || r["Menge"] || "1", 10) || 1,
+    price: parsePrice(r["Verkauft für"] || r["Gesamtbetrag"] || "") || null,
+    shippingCost: parsePrice(r["Verpackung und Versand"] || "") || null,
+    customerType,
+    shippingCarrier: r["Versandservice"] || null,
+    trackingNumber: r["Sendungsnummer"] || null,
+    shippingDate: null,
+    status: "Offen",
+  };
 }
 
 export async function registerRoutes(
@@ -79,63 +220,35 @@ export async function registerRoutes(
       }
 
       const content = req.file.buffer.toString("utf-8");
-      const firstLine = content.split("\n")[0];
-      const isTabSeparated = firstLine.includes("\t");
-      const rawHeaders = isTabSeparated
-        ? firstLine.split("\t").map(h => h.trim())
-        : firstLine.split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-
-      const platform = detectPlatform(rawHeaders);
-
-      let records: Record<string, string>[];
+      
+      let parsed: { records: Record<string, string>[]; delimiter: string };
       try {
-        records = parseFile(content);
+        parsed = parseFile(content);
       } catch (parseError) {
         return res.status(400).json({ message: "Datei konnte nicht gelesen werden. Bitte prüfe das Format." });
       }
+
+      const { records } = parsed;
 
       if (records.length === 0) {
         return res.status(400).json({ message: "Keine Datensätze in der Datei gefunden" });
       }
 
+      const firstRecordKeys = Object.keys(records[0]);
+      const platform = detectPlatform(firstRecordKeys);
+
       const seenInFile = new Set<string>();
       const orderList: any[] = [];
 
       for (const r of records) {
-        const orderItemId = r["order-item-id"] || r["Transaction ID"] || r["order-id"] || "";
-        if (!orderItemId) continue;
+        const mapped = platform === "eBay" ? mapEbayRecord(r) : mapAmazonRecord(r);
+        
+        if (!mapped.orderItemId || mapped.orderItemId === "ebay-") continue;
 
-        if (seenInFile.has(orderItemId)) continue;
-        seenInFile.add(orderItemId);
+        if (seenInFile.has(mapped.orderItemId)) continue;
+        seenInFile.add(mapped.orderItemId);
 
-        const recipientName = r["recipient-name"] || r["Buyer Name"] || r["buyer-name"] || "";
-        const { firstName, lastName } = splitName(recipientName);
-        const contactPerson = (r["ship-address-2"] || "").trim();
-        const customerType = contactPerson ? "Firma" : "Privat";
-
-        orderList.push({
-          platform: platform === "unknown" ? "Amazon" : platform,
-          purchaseDate: normalizeDate(r["purchase-date"] || r["Sale Date"] || ""),
-          orderId: r["order-id"] || r["Order Number"] || "",
-          orderItemId,
-          email: r["buyer-email"] || r["Buyer Email"] || "",
-          phone: r["buyer-phone-number"] || r["Buyer Phone"] || "",
-          firstName,
-          lastName,
-          street: r["ship-address-1"] || r["Shipping Address 1"] || "",
-          contactPerson: contactPerson || null,
-          city: r["ship-city"] || r["Shipping City"] || "",
-          postalCode: r["ship-postal-code"] || r["Shipping Zip"] || "",
-          country: r["ship-country"] || r["Shipping Country"] || "",
-          sku: r["sku"] || r["Custom Label"] || "",
-          productName: r["product-name"] || r["Item Title"] || "",
-          quantity: parseInt(r["quantity-purchased"] || r["Quantity"] || "1", 10) || 1,
-          customerType,
-          shippingCarrier: null,
-          trackingNumber: null,
-          shippingDate: null,
-          status: "Offen",
-        });
+        orderList.push(mapped);
       }
 
       const result = await storage.createOrders(orderList);
