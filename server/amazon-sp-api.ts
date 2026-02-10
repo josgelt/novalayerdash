@@ -1,6 +1,7 @@
 const SP_API_EU_ENDPOINT = "https://sellingpartnerapi-eu.amazon.com";
 const LWA_TOKEN_ENDPOINT = "https://api.amazon.com/auth/o2/token";
 const MARKETPLACE_DE = "A1PA6795UKMFR9";
+const USER_AGENT = "NovalayerOrderDashboard/1.0 (Language=TypeScript)";
 
 let cachedAccessToken: string | null = null;
 let tokenExpiresAt = 0;
@@ -49,7 +50,8 @@ async function getAccessToken(forceRefresh = false): Promise<string> {
   }
   cachedAccessToken = data.access_token;
   tokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000;
-  console.log("LWA Access Token erfolgreich erneuert, gültig für", data.expires_in, "Sekunden");
+  const tokenPrefix = (data.access_token as string).substring(0, 10);
+  console.log(`LWA Access Token erneuert (${tokenPrefix}...), gültig für ${data.expires_in}s, Client: ${clientId.substring(0, 15)}...`);
   return cachedAccessToken!;
 }
 
@@ -59,6 +61,7 @@ async function getRestrictedDataToken(accessToken: string, path: string): Promis
     headers: {
       "x-amz-access-token": accessToken,
       "Content-Type": "application/json",
+      "User-Agent": USER_AGENT,
     },
     body: JSON.stringify({
       restrictedResources: [
@@ -175,23 +178,25 @@ function mapOrderToSchema(order: AmazonOrder, item: AmazonOrderItem) {
   };
 }
 
+function spApiHeaders(token: string): Record<string, string> {
+  return {
+    "x-amz-access-token": token,
+    "User-Agent": USER_AGENT,
+  };
+}
+
 async function callOrdersApi(token: string, params: URLSearchParams): Promise<Response> {
   const url = `${SP_API_EU_ENDPOINT}/orders/v0/orders?${params.toString()}`;
+  console.log("Calling Orders API...", url.substring(0, 80));
   const res = await fetchWithRetry(url, {
-    headers: {
-      "x-amz-access-token": token,
-      "Content-Type": "application/json",
-    },
+    headers: spApiHeaders(token),
   });
 
   if (res.status === 403) {
     console.warn("Orders API returned 403, forcing token refresh and retrying...");
     const freshToken = await getAccessToken(true);
     return await fetchWithRetry(url, {
-      headers: {
-        "x-amz-access-token": freshToken,
-        "Content-Type": "application/json",
-      },
+      headers: spApiHeaders(freshToken),
     });
   }
 
@@ -278,18 +283,12 @@ export async function fetchAmazonOrders(createdAfter: string, createdBefore?: st
 
       const itemUrl = `${SP_API_EU_ENDPOINT}/orders/v0/orders/${order.AmazonOrderId}/items`;
       let itemRes = await fetchWithRetry(itemUrl, {
-        headers: {
-          "x-amz-access-token": itemToken,
-          "Content-Type": "application/json",
-        },
+        headers: spApiHeaders(itemToken),
       });
 
       if (itemRes.status === 403 && itemToken !== accessToken) {
         itemRes = await fetchWithRetry(itemUrl, {
-          headers: {
-            "x-amz-access-token": accessToken,
-            "Content-Type": "application/json",
-          },
+          headers: spApiHeaders(accessToken),
         });
       }
 
