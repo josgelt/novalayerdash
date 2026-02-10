@@ -25,6 +25,15 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
+function getTrackingUrl(carrier: string | null | undefined, trackingNumber: string): string | null {
+  if (!carrier) return null;
+  const c = carrier.toLowerCase();
+  if (c.includes("dhl")) return `https://www.dhl.de/de/privatkunden/dhl-sendungsverfolgung.html?piececode=${trackingNumber}`;
+  if (c.includes("gls")) return `https://gls-group.com/DE/de/paketverfolgung?match=${trackingNumber}`;
+  if (c.includes("post") || c.includes("österreich")) return `https://www.post.at/track/${trackingNumber}`;
+  return null;
+}
+
 function StatusBadge({ status }: { status: string }) {
   if (status === "Versendet") {
     return <Badge variant="default" className="bg-emerald-600 text-white"><Check className="w-3 h-3 mr-1" />Versendet</Badge>;
@@ -534,7 +543,14 @@ export default function Dashboard() {
                           {order.shippingCarrier ? (
                             <div>
                               <div>{order.shippingCarrier}</div>
-                              {order.trackingNumber && <div className="text-muted-foreground font-mono truncate max-w-[120px]">{order.trackingNumber}</div>}
+                              {order.trackingNumber && (() => {
+                                const url = getTrackingUrl(order.shippingCarrier, order.trackingNumber);
+                                return url ? (
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground font-mono truncate max-w-[120px] block cursor-pointer" title="Sendungsverfolgung öffnen">{order.trackingNumber}</a>
+                                ) : (
+                                  <div className="text-muted-foreground font-mono truncate max-w-[120px]">{order.trackingNumber}</div>
+                                );
+                              })()}
                               {order.shippingDate && <div className="text-muted-foreground">{formatDate(order.shippingDate)}</div>}
                             </div>
                           ) : (
