@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Package, Truck, Calendar, Globe, Filter, Trash2, Edit3, X, Check, Search, FileText, AlertTriangle, Download } from "lucide-react";
+import { Upload, Package, Truck, Calendar, Globe, Filter, Trash2, Edit3, X, Check, Search, FileText, AlertTriangle, Download, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -361,10 +362,6 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2 flex-wrap">
-              <Button variant="destructive" onClick={() => setDeleteAllConfirm(true)} data-testid="button-delete-all">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Alle löschen
-              </Button>
               <Button
                 variant="outline"
                 data-testid="button-export-logoix"
@@ -388,18 +385,29 @@ export default function Dashboard() {
                 <Download className="w-4 h-4 mr-2" />
                 Export LogoiX
               </Button>
-              <Button variant="outline" onClick={() => setShippingImportOpen(true)} data-testid="button-import-shipping">
-                <Truck className="w-4 h-4 mr-2" />
-                Versandliste
-              </Button>
-              <Button variant="outline" onClick={() => { setAmazonFetchOpen(true); setAmazonFetchResult(null); }} data-testid="button-fetch-amazon">
-                <Globe className="w-4 h-4 mr-2" />
-                Amazon API
-              </Button>
-              <Button onClick={() => setImportOpen(true)} data-testid="button-import">
-                <Upload className="w-4 h-4 mr-2" />
-                Importieren
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button data-testid="button-import">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importieren
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setImportOpen(true)} data-testid="button-import-file">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Bestellungen (TSV/CSV)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShippingImportOpen(true)} data-testid="button-import-shipping">
+                    <Truck className="w-4 h-4 mr-2" />
+                    Versandliste (CSV)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setAmazonFetchOpen(true); setAmazonFetchResult(null); }} data-testid="button-fetch-amazon">
+                    <Globe className="w-4 h-4 mr-2" />
+                    Amazon SP-API
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </Card>
@@ -528,6 +536,16 @@ export default function Dashboard() {
             </ScrollArea>
           )}
         </Card>
+
+        <div className="flex justify-end pt-2 pb-4">
+          <button
+            onClick={() => setDeleteAllConfirm(true)}
+            className="text-[10px] text-muted-foreground/40 hover:text-destructive/60 transition-colors"
+            data-testid="button-delete-all"
+          >
+            Alle Bestellungen löschen
+          </button>
+        </div>
       </main>
 
       <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) setImportResult(null); }}>
