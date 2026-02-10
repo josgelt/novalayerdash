@@ -428,11 +428,11 @@ export default function Dashboard() {
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Plattform</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Bestelldatum</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Order ID</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Artikel</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Menge</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Kunde</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Adresse</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Land</th>
-                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Artikel</th>
-                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Menge</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Versender</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Versand</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Status</th>
@@ -452,6 +452,13 @@ export default function Dashboard() {
                           <span className="font-mono text-xs text-muted-foreground">{order.orderId}</span>
                         </td>
                         <td className="px-2 py-1 text-xs">
+                          <div className="max-w-[300px] truncate" title={order.productName || ""}>
+                            {order.productName || "-"}
+                          </div>
+                          {order.sku && <div className="text-muted-foreground font-mono">{order.sku}</div>}
+                        </td>
+                        <td className="px-2 py-1 text-xs text-center">{order.quantity}</td>
+                        <td className="px-2 py-1 text-xs">
                           <div>{order.firstName} {order.lastName}</div>
                           {order.phone && <div className="text-muted-foreground">{order.phone}</div>}
                         </td>
@@ -461,13 +468,6 @@ export default function Dashboard() {
                           <div>{order.postalCode} {order.city}</div>
                         </td>
                         <td className="px-2 py-1 text-xs">{order.country}</td>
-                        <td className="px-2 py-1 text-xs">
-                          <div className="max-w-[200px] truncate" title={order.productName || ""}>
-                            {order.productName || "-"}
-                          </div>
-                          {order.sku && <div className="text-muted-foreground font-mono">{order.sku}</div>}
-                        </td>
-                        <td className="px-2 py-1 text-xs text-center">{order.quantity}</td>
                         <td className="px-2 py-1 text-xs">
                           <Select
                             value={order.shipper || ""}
