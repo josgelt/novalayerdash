@@ -176,28 +176,49 @@ export default function Dashboard() {
 
   const handleShippingImport = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    try {
-      const res = await fetch("/api/orders/import-shipping", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message);
+    const input = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement;
+    const files = input?.files;
+    if (!files || files.length === 0) return;
+
+    let totalUpdated = 0;
+    let allNotFound: string[] = [];
+    let allFuzzyMatched: string[] = [];
+    let allAmbiguous: string[] = [];
+    let errors: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const formData = new FormData();
+      formData.append("file", files[i]);
+      try {
+        const res = await fetch("/api/orders/import-shipping", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          errors.push(`${files[i].name}: ${err.message}`);
+          continue;
+        }
+        const result = await res.json();
+        totalUpdated += result.updated;
+        if (result.notFound?.length) allNotFound.push(...result.notFound);
+        if (result.fuzzyMatched?.length) allFuzzyMatched.push(...result.fuzzyMatched);
+        if (result.ambiguous?.length) allAmbiguous.push(...result.ambiguous);
+      } catch (error: any) {
+        errors.push(`${files[i].name}: ${error.message}`);
       }
-      const result = await res.json();
-      setShippingImportResult(result);
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      const hasIssues = (result.notFound?.length > 0) || (result.fuzzyMatched?.length > 0) || (result.ambiguous?.length > 0);
-      if (!hasIssues) {
-        toast({ title: "Versandliste importiert", description: `${result.updated} Bestellungen aktualisiert` });
-        setShippingImportOpen(false);
-        setShippingImportResult(null);
-      }
-    } catch (error: any) {
-      toast({ title: "Import fehlgeschlagen", description: error.message, variant: "destructive" });
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    setShippingImportResult({ updated: totalUpdated, notFound: allNotFound, fuzzyMatched: allFuzzyMatched, ambiguous: allAmbiguous });
+
+    if (errors.length > 0) {
+      toast({ title: "Teilweise fehlgeschlagen", description: errors.join(", "), variant: "destructive" });
+    } else if (allNotFound.length === 0 && allFuzzyMatched.length === 0 && allAmbiguous.length === 0) {
+      toast({ title: "Versandliste importiert", description: `${totalUpdated} Bestellungen aus ${files.length} Datei(en) aktualisiert` });
+      setShippingImportOpen(false);
+      setShippingImportResult(null);
     }
   };
 
@@ -618,7 +639,7 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Versandliste importieren</DialogTitle>
             <DialogDescription>
-              Lade eine Versandliste (.csv) hoch. Versanddienstleister und Paketnummer werden automatisch den bestehenden Bestellungen zugeordnet. Versender wird auf LogoiX gesetzt.
+              Lade eine oder mehrere Versandlisten (.csv) hoch. Versanddienstleister und Paketnummer werden automatisch den bestehenden Bestellungen zugeordnet. Versender wird auf LogoiX gesetzt.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleShippingImport} className="space-y-4">
@@ -628,10 +649,11 @@ export default function Dashboard() {
                 type="file"
                 name="file"
                 accept=".csv"
+                multiple
                 className="max-w-xs mx-auto"
                 data-testid="input-shipping-file-upload"
               />
-              <p className="text-xs text-muted-foreground mt-2">CSV Versandliste mit Referenz und Paketnummer</p>
+              <p className="text-xs text-muted-foreground mt-2">Mehrere CSV Versandlisten möglich</p>
             </div>
             {shippingImportResult && (
               <div className="space-y-2">
