@@ -1,9 +1,10 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { fetchAmazonOrders } from "./amazon-sp-api";
+import bcrypt from "bcryptjs";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -258,10 +259,63 @@ function mapEbayRecord(r: Record<string, string>): any {
   };
 }
 
+function getUsers() {
+  const username = process.env.AUTH_USERNAME || "josef";
+  const password = process.env.AUTH_PASSWORD || "Liebherr+99?!";
+  return [{ username, passwordHash: bcrypt.hashSync(password, 12) }];
+}
+
+let cachedUsers: { username: string; passwordHash: string }[] | null = null;
+function getAuthUsers() {
+  if (!cachedUsers) {
+    cachedUsers = getUsers();
+  }
+  return cachedUsers;
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session && req.session.userId) {
+    return next();
+  }
+  res.status(401).json({ message: "Nicht autorisiert" });
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Benutzername und Passwort erforderlich" });
+    }
+    const user = getAuthUsers().find((u) => u.username === username.toLowerCase());
+    if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+      return res.status(401).json({ message: "Benutzername oder Passwort falsch" });
+    }
+    req.session.userId = user.username;
+    res.json({ username: user.username });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Fehler beim Abmelden" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "Abgemeldet" });
+    });
+  });
+
+  app.get("/api/auth/check", (req, res) => {
+    if (req.session && req.session.userId) {
+      return res.json({ authenticated: true, username: req.session.userId });
+    }
+    res.json({ authenticated: false });
+  });
+
+  app.use("/api/orders", requireAuth);
 
   app.get("/api/orders", async (req, res) => {
     try {
