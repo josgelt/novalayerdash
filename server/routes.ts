@@ -7,6 +7,70 @@ import { fetchAmazonOrders } from "./amazon-sp-api";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+const countryNameToCode: Record<string, string> = {
+  "deutschland": "DE",
+  "germany": "DE",
+  "österreich": "AT",
+  "oesterreich": "AT",
+  "austria": "AT",
+  "italien": "IT",
+  "italy": "IT",
+  "frankreich": "FR",
+  "france": "FR",
+  "schweiz": "CH",
+  "switzerland": "CH",
+  "niederlande": "NL",
+  "netherlands": "NL",
+  "belgien": "BE",
+  "belgium": "BE",
+  "spanien": "ES",
+  "spain": "ES",
+  "portugal": "PT",
+  "polen": "PL",
+  "poland": "PL",
+  "tschechien": "CZ",
+  "czech republic": "CZ",
+  "czechia": "CZ",
+  "dänemark": "DK",
+  "denmark": "DK",
+  "schweden": "SE",
+  "sweden": "SE",
+  "norwegen": "NO",
+  "norway": "NO",
+  "finnland": "FI",
+  "finland": "FI",
+  "ungarn": "HU",
+  "hungary": "HU",
+  "rumänien": "RO",
+  "romania": "RO",
+  "bulgarien": "BG",
+  "bulgaria": "BG",
+  "kroatien": "HR",
+  "croatia": "HR",
+  "slowenien": "SI",
+  "slovenia": "SI",
+  "slowakei": "SK",
+  "slovakia": "SK",
+  "irland": "IE",
+  "ireland": "IE",
+  "luxemburg": "LU",
+  "luxembourg": "LU",
+  "griechenland": "GR",
+  "greece": "GR",
+  "vereinigtes königreich": "GB",
+  "großbritannien": "GB",
+  "united kingdom": "GB",
+  "great britain": "GB",
+};
+
+function normalizeCountry(country: string): string {
+  if (!country) return "";
+  const trimmed = country.trim();
+  if (trimmed.length <= 3) return trimmed.toUpperCase();
+  const code = countryNameToCode[trimmed.toLowerCase()];
+  return code || trimmed;
+}
+
 function detectDelimiter(firstLine: string): string {
   if (firstLine.includes("\t")) return "\t";
   const semicolonCount = (firstLine.match(/;/g) || []).length;
@@ -180,7 +244,7 @@ function mapEbayRecord(r: Record<string, string>): any {
     contactPerson: contactPerson || null,
     city: r["Versand nach - Ort"] || r["Wohnort des Käufers"] || "",
     postalCode: r["Versand nach - PLZ"] || r["PLZ des Käufers"] || "",
-    country: r["Versand nach - Land"] || r["Land des Käufers"] || "",
+    country: normalizeCountry(r["Versand nach - Land"] || r["Land des Käufers"] || ""),
     sku: r["Bestandseinheit"] || "",
     productName: r["Angebotstitel"] || "",
     quantity: parseInt(r["Anzahl"] || r["Menge"] || "1", 10) || 1,
