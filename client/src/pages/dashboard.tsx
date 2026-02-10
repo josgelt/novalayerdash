@@ -50,6 +50,7 @@ export default function Dashboard() {
   const [dateTo, setDateTo] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [platformFilter, setPlatformFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Offen");
 
   const [shippingCarrier, setShippingCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
@@ -141,6 +142,7 @@ export default function Dashboard() {
   };
 
   const filteredOrders = orders.filter((o) => {
+    if (statusFilter && statusFilter !== "all" && o.status !== statusFilter) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -260,6 +262,19 @@ export default function Dashboard() {
                   <SelectItem value="all">Alle</SelectItem>
                   <SelectItem value="Amazon">Amazon</SelectItem>
                   <SelectItem value="eBay">eBay</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground">Status</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32" data-testid="select-status">
+                  <SelectValue placeholder="Alle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle</SelectItem>
+                  <SelectItem value="Offen">Offen</SelectItem>
+                  <SelectItem value="Versendet">Versendet</SelectItem>
                 </SelectContent>
               </Select>
             </div>
