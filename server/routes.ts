@@ -514,7 +514,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/orders/seed", async (_req, res) => {
+  app.get("/api/orders/seed", async (_req, res) => {
     try {
       const existing = await storage.getAllOrders();
       if (existing.length > 0) {
