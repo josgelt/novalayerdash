@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
+import { fetchAmazonOrders } from "./amazon-sp-api";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -372,6 +373,31 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Fehler beim Löschen" });
+    }
+  });
+
+  app.post("/api/orders/fetch-amazon", async (req, res) => {
+    try {
+      const { createdAfter, createdBefore } = req.body;
+      if (!createdAfter) {
+        return res.status(400).json({ message: "createdAfter ist erforderlich" });
+      }
+
+      if (!process.env.AMAZON_SP_CLIENT_ID || !process.env.AMAZON_SP_CLIENT_SECRET || !process.env.AMAZON_SP_REFRESH_TOKEN) {
+        return res.status(400).json({ message: "Amazon SP-API Zugangsdaten nicht konfiguriert" });
+      }
+
+      const { orders: fetchedOrders, errors } = await fetchAmazonOrders(createdAfter, createdBefore);
+
+      if (fetchedOrders.length === 0 && errors.length > 0) {
+        return res.status(500).json({ message: "API-Fehler: " + errors[0] });
+      }
+
+      const result = await storage.createOrders(fetchedOrders);
+      res.json({ ...result, apiErrors: errors });
+    } catch (error: any) {
+      console.error("Amazon fetch error:", error);
+      res.status(500).json({ message: error.message || "Fehler beim Abrufen der Amazon-Bestellungen" });
     }
   });
 

@@ -61,6 +61,15 @@ export default function Dashboard() {
   const [shippingImportResult, setShippingImportResult] = useState<{ updated: number; notFound: string[]; fuzzyMatched: string[]; ambiguous: string[] } | null>(null);
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
 
+  const [amazonFetchOpen, setAmazonFetchOpen] = useState(false);
+  const [amazonDateFrom, setAmazonDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  });
+  const [amazonDateTo, setAmazonDateTo] = useState(() => new Date().toISOString().split("T")[0]);
+  const [amazonFetchResult, setAmazonFetchResult] = useState<{ imported: number; duplicates: number; duplicateIds: string[]; apiErrors?: string[] } | null>(null);
+
   const buildQueryString = () => {
     const params = new URLSearchParams();
     if (dateFrom) params.set("dateFrom", dateFrom);
@@ -170,6 +179,31 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       toast({ title: "Import fehlgeschlagen", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const [amazonFetching, setAmazonFetching] = useState(false);
+
+  const handleAmazonFetch = async () => {
+    setAmazonFetching(true);
+    setAmazonFetchResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/orders/fetch-amazon", {
+        createdAfter: new Date(amazonDateFrom).toISOString(),
+        createdBefore: new Date(amazonDateTo + "T23:59:59").toISOString(),
+      });
+      const result = await res.json();
+      setAmazonFetchResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      if (result.duplicates === 0 && (!result.apiErrors || result.apiErrors.length === 0)) {
+        toast({ title: "Amazon Import erfolgreich", description: `${result.imported} Bestellungen importiert` });
+        setAmazonFetchOpen(false);
+        setAmazonFetchResult(null);
+      }
+    } catch (error: any) {
+      toast({ title: "Amazon Abruf fehlgeschlagen", description: error.message, variant: "destructive" });
+    } finally {
+      setAmazonFetching(false);
     }
   };
 
@@ -326,7 +360,7 @@ export default function Dashboard() {
                 />
               </div>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
               <Button variant="destructive" onClick={() => setDeleteAllConfirm(true)} data-testid="button-delete-all">
                 <Trash2 className="w-4 h-4 mr-2" />
                 Alle löschen
@@ -334,6 +368,10 @@ export default function Dashboard() {
               <Button variant="outline" onClick={() => setShippingImportOpen(true)} data-testid="button-import-shipping">
                 <Truck className="w-4 h-4 mr-2" />
                 Versandliste
+              </Button>
+              <Button variant="outline" onClick={() => { setAmazonFetchOpen(true); setAmazonFetchResult(null); }} data-testid="button-fetch-amazon">
+                <Globe className="w-4 h-4 mr-2" />
+                Amazon API
               </Button>
               <Button onClick={() => setImportOpen(true)} data-testid="button-import">
                 <Upload className="w-4 h-4 mr-2" />
@@ -595,6 +633,85 @@ export default function Dashboard() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={amazonFetchOpen} onOpenChange={(open) => { if (!open) { setAmazonFetchOpen(false); setAmazonFetchResult(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Amazon Bestellungen abrufen</DialogTitle>
+            <DialogDescription>
+              Bestellungen werden automatisch über die Amazon SP-API abgerufen und importiert.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium">Von</label>
+                <Input
+                  type="date"
+                  value={amazonDateFrom}
+                  onChange={(e) => setAmazonDateFrom(e.target.value)}
+                  data-testid="input-amazon-date-from"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium">Bis</label>
+                <Input
+                  type="date"
+                  value={amazonDateTo}
+                  onChange={(e) => setAmazonDateTo(e.target.value)}
+                  data-testid="input-amazon-date-to"
+                />
+              </div>
+            </div>
+            {amazonFetching && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                Bestellungen werden abgerufen... Dies kann einen Moment dauern.
+              </div>
+            )}
+            {amazonFetchResult && (
+              <div className="space-y-2">
+                {amazonFetchResult.imported > 0 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>{amazonFetchResult.imported} Bestellungen importiert</span>
+                  </div>
+                )}
+                {amazonFetchResult.duplicates > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-amber-600">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>{amazonFetchResult.duplicates} Dubletten übersprungen</span>
+                  </div>
+                )}
+                {amazonFetchResult.apiErrors && amazonFetchResult.apiErrors.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm text-destructive">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div>{amazonFetchResult.apiErrors.length} API-Fehler:</div>
+                      <ul className="mt-1 text-xs font-mono">
+                        {amazonFetchResult.apiErrors.slice(0, 5).map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                        {amazonFetchResult.apiErrors.length > 5 && (
+                          <li>... und {amazonFetchResult.apiErrors.length - 5} weitere</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAmazonFetchOpen(false); setAmazonFetchResult(null); }}>
+              Schließen
+            </Button>
+            <Button onClick={handleAmazonFetch} disabled={amazonFetching} data-testid="button-submit-amazon-fetch">
+              {amazonFetching ? "Abrufen..." : "Bestellungen abrufen"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
