@@ -155,7 +155,7 @@ export default function Dashboard() {
     );
   });
 
-  const countries = [...new Set(orders.map(o => o.country).filter(Boolean))].sort();
+  const countries = Array.from(new Set(orders.map(o => o.country).filter(Boolean))).sort();
 
   const totalOrders = filteredOrders.length;
   const openOrders = filteredOrders.filter(o => o.status === "Offen").length;

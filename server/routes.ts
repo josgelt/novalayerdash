@@ -49,7 +49,7 @@ function parseFile(content: string): Record<string, string>[] {
     bom: true,
   });
 
-  return records;
+  return records as Record<string, string>[];
 }
 
 export async function registerRoutes(
