@@ -422,20 +422,20 @@ export default function Dashboard() {
           ) : (
             <ScrollArea className="w-full">
               <div className="min-w-[1400px]">
-                <table className="w-full text-sm" data-testid="table-orders">
+                <table className="w-full text-xs" data-testid="table-orders">
                   <thead>
                     <tr className="border-b bg-muted/40">
-                      <th className="text-left p-3 font-medium text-muted-foreground">Plattform</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Bestelldatum</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Order ID</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Kunde</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Adresse</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Artikel</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Menge</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Versender</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Versand</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Aktionen</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Plattform</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Bestelldatum</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Order ID</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Kunde</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Adresse</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Artikel</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Menge</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Versender</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Versand</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Status</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Aktionen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -445,32 +445,30 @@ export default function Dashboard() {
                         className="border-b hover-elevate"
                         data-testid={`row-order-${order.id}`}
                       >
-                        <td className="p-3"><PlatformBadge platform={order.platform} /></td>
-                        <td className="p-3 whitespace-nowrap">{formatDate(order.purchaseDate)}</td>
-                        <td className="p-3">
+                        <td className="px-2 py-1 text-xs"><PlatformBadge platform={order.platform} /></td>
+                        <td className="px-2 py-1 text-xs whitespace-nowrap">{formatDate(order.purchaseDate)}</td>
+                        <td className="px-2 py-1">
                           <span className="font-mono text-xs text-muted-foreground">{order.orderId}</span>
                         </td>
-                        <td className="p-3">
-                          <div className="font-medium">{order.firstName} {order.lastName}</div>
-                          {order.email && <div className="text-xs text-muted-foreground truncate max-w-[180px]">{order.email}</div>}
-                          {order.phone && <div className="text-xs text-muted-foreground">{order.phone}</div>}
+                        <td className="px-2 py-1 text-xs">
+                          <div>{order.firstName} {order.lastName}</div>
+                          {order.email && <div className="text-muted-foreground truncate max-w-[180px]">{order.email}</div>}
+                          {order.phone && <div className="text-muted-foreground">{order.phone}</div>}
                         </td>
-                        <td className="p-3">
-                          <div className="text-xs">
-                            {order.street && <div>{order.street}</div>}
-                            {order.contactPerson && <div className="text-muted-foreground">{order.contactPerson}</div>}
-                            <div>{order.postalCode} {order.city}</div>
-                            <div className="text-muted-foreground">{order.country}</div>
-                          </div>
+                        <td className="px-2 py-1 text-xs">
+                          {order.street && <div>{order.street}</div>}
+                          {order.contactPerson && <div className="text-muted-foreground">{order.contactPerson}</div>}
+                          <div>{order.postalCode} {order.city}</div>
+                          <div className="text-muted-foreground">{order.country}</div>
                         </td>
-                        <td className="p-3">
+                        <td className="px-2 py-1 text-xs">
                           <div className="max-w-[200px] truncate" title={order.productName || ""}>
                             {order.productName || "-"}
                           </div>
-                          {order.sku && <div className="text-xs text-muted-foreground font-mono">{order.sku}</div>}
+                          {order.sku && <div className="text-muted-foreground font-mono">{order.sku}</div>}
                         </td>
-                        <td className="p-3 text-center">{order.quantity}</td>
-                        <td className="p-3">
+                        <td className="px-2 py-1 text-xs text-center">{order.quantity}</td>
+                        <td className="px-2 py-1 text-xs">
                           <Select
                             value={order.shipper || ""}
                             onValueChange={(value) => updateMutation.mutate({ id: order.id, data: { shipper: value } })}
@@ -485,19 +483,19 @@ export default function Dashboard() {
                             </SelectContent>
                           </Select>
                         </td>
-                        <td className="p-3">
+                        <td className="px-2 py-1 text-xs">
                           {order.shippingCarrier ? (
-                            <div className="text-xs">
-                              <div className="font-medium">{order.shippingCarrier}</div>
+                            <div>
+                              <div>{order.shippingCarrier}</div>
                               {order.trackingNumber && <div className="text-muted-foreground font-mono truncate max-w-[120px]">{order.trackingNumber}</div>}
                               {order.shippingDate && <div className="text-muted-foreground">{formatDate(order.shippingDate)}</div>}
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="p-3"><StatusBadge status={order.status} /></td>
-                        <td className="p-3">
+                        <td className="px-2 py-1"><StatusBadge status={order.status} /></td>
+                        <td className="px-2 py-1">
                           <div className="flex items-center gap-1">
                             <Button
                               size="icon"
