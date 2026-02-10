@@ -11,8 +11,10 @@ Order management dashboard for Amazon and eBay sellers. Import order files (TSV/
 
 ## Key Features
 - Import Amazon TSV and eBay CSV files with auto platform detection
+- Import shipping lists (CSV with Referenz matching orderId) to auto-fill carrier, tracking, shipper (LogoiX)
 - Duplicate check on order-item-id (unique constraint)
-- Filter by date range, country, platform + full-text search
+- Filter by date range, country, platform, status (default: Offen) + full-text search
+- Versender dropdown per order (Senddrop, Sendcloud, LogoiX)
 - Auto status calculation: "Offen" until carrier + tracking + date are set, then "Versendet"
 - Edit shipping details (carrier, tracking number, date)
 - Delete orders with confirmation
@@ -28,7 +30,8 @@ Order management dashboard for Amazon and eBay sellers. Import order files (TSV/
 ## API Endpoints
 - `GET /api/orders` - List orders with optional filters (dateFrom, dateTo, country, platform)
 - `POST /api/orders/import` - Import file (multipart form, field: "file")
-- `PATCH /api/orders/:id` - Update order (shipping details)
+- `POST /api/orders/import-shipping` - Import shipping list CSV (matches Referenz to orderId, sets carrier/tracking/shipper)
+- `PATCH /api/orders/:id` - Update order (shipping details, shipper)
 - `DELETE /api/orders/:id` - Delete order
 
 ## Design
