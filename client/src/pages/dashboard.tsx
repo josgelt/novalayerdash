@@ -385,7 +385,7 @@ export default function Dashboard() {
                 <Download className="w-4 h-4 mr-2" />
                 Export LogoiX
               </Button>
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button data-testid="button-import">
                     <Upload className="w-4 h-4 mr-2" />
