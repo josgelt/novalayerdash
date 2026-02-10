@@ -5,16 +5,31 @@ const MARKETPLACE_DE = "A1PA6795UKMFR9";
 let cachedAccessToken: string | null = null;
 let tokenExpiresAt = 0;
 
-async function getAccessToken(): Promise<string> {
-  if (cachedAccessToken && Date.now() < tokenExpiresAt) {
+function invalidateAccessToken() {
+  cachedAccessToken = null;
+  tokenExpiresAt = 0;
+}
+
+async function getAccessToken(forceRefresh = false): Promise<string> {
+  if (!forceRefresh && cachedAccessToken && Date.now() < tokenExpiresAt) {
     return cachedAccessToken;
+  }
+
+  invalidateAccessToken();
+
+  const refreshToken = process.env.AMAZON_SP_REFRESH_TOKEN || "";
+  const clientId = process.env.AMAZON_SP_CLIENT_ID || "";
+  const clientSecret = process.env.AMAZON_SP_CLIENT_SECRET || "";
+
+  if (!refreshToken || !clientId || !clientSecret) {
+    throw new Error("Amazon API Zugangsdaten fehlen. Bitte AMAZON_SP_CLIENT_ID, AMAZON_SP_CLIENT_SECRET und AMAZON_SP_REFRESH_TOKEN in den Secrets konfigurieren.");
   }
 
   const body = new URLSearchParams({
     grant_type: "refresh_token",
-    refresh_token: process.env.AMAZON_SP_REFRESH_TOKEN || "",
-    client_id: process.env.AMAZON_SP_CLIENT_ID || "",
-    client_secret: process.env.AMAZON_SP_CLIENT_SECRET || "",
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
   });
 
   const res = await fetch(LWA_TOKEN_ENDPOINT, {
@@ -25,12 +40,16 @@ async function getAccessToken(): Promise<string> {
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`LWA Token-Fehler: ${res.status} ${err}`);
+    throw new Error(`Amazon Login-Fehler (${res.status}): Zugangsdaten ungültig. Bitte Client ID, Client Secret und Refresh Token prüfen.`);
   }
 
   const data = await res.json();
+  if (!data.access_token) {
+    throw new Error("Amazon Login hat kein Access Token zurückgegeben.");
+  }
   cachedAccessToken = data.access_token;
   tokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000;
+  console.log("LWA Access Token erfolgreich erneuert, gültig für", data.expires_in, "Sekunden");
   return cachedAccessToken!;
 }
 
@@ -55,7 +74,7 @@ async function getRestrictedDataToken(accessToken: string, path: string): Promis
   if (!res.ok) {
     const err = await res.text();
     console.warn("RDT request failed:", res.status, err);
-    throw new Error(`RDT-Fehler (${res.status}): Kein Zugriff auf Adressdaten. Prüfe die App-Berechtigungen.`);
+    throw new Error(`RDT-Fehler (${res.status})`);
   }
 
   const data = await res.json();
@@ -156,6 +175,29 @@ function mapOrderToSchema(order: AmazonOrder, item: AmazonOrderItem) {
   };
 }
 
+async function callOrdersApi(token: string, params: URLSearchParams): Promise<Response> {
+  const url = `${SP_API_EU_ENDPOINT}/orders/v0/orders?${params.toString()}`;
+  const res = await fetchWithRetry(url, {
+    headers: {
+      "x-amz-access-token": token,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (res.status === 403) {
+    console.warn("Orders API returned 403, forcing token refresh and retrying...");
+    const freshToken = await getAccessToken(true);
+    return await fetchWithRetry(url, {
+      headers: {
+        "x-amz-access-token": freshToken,
+        "Content-Type": "application/json",
+      },
+    });
+  }
+
+  return res;
+}
+
 export async function fetchAmazonOrders(createdAfter: string, createdBefore?: string): Promise<{
   orders: ReturnType<typeof mapOrderToSchema>[];
   errors: string[];
@@ -163,14 +205,15 @@ export async function fetchAmazonOrders(createdAfter: string, createdBefore?: st
   const errors: string[] = [];
   const allMappedOrders: ReturnType<typeof mapOrderToSchema>[] = [];
 
-  const accessToken = await getAccessToken();
+  let accessToken = await getAccessToken();
 
+  let useRdt = true;
   let rdtToken: string;
   try {
     rdtToken = await getRestrictedDataToken(accessToken, "/orders/v0/orders");
   } catch (rdtErr: any) {
     console.warn("RDT für Orders fehlgeschlagen, fahre ohne PII-Zugriff fort:", rdtErr.message);
-    errors.push("Adressdaten nicht verfügbar (RDT fehlgeschlagen) - Bestellungen werden ohne Adresse importiert");
+    useRdt = false;
     rdtToken = accessToken;
   }
 
@@ -187,17 +230,19 @@ export async function fetchAmazonOrders(createdAfter: string, createdBefore?: st
     if (createdBefore) params.set("CreatedBefore", createdBefore);
     if (nextToken) params.set("NextToken", nextToken);
 
-    const url = `${SP_API_EU_ENDPOINT}/orders/v0/orders?${params.toString()}`;
-
-    const res = await fetchWithRetry(url, {
-      headers: {
-        "x-amz-access-token": rdtToken,
-        "Content-Type": "application/json",
-      },
-    });
+    const res = await callOrdersApi(rdtToken, params);
 
     if (!res.ok) {
       const errText = await res.text();
+      if (res.status === 403) {
+        throw new Error(
+          "Zugriff verweigert (403). Mögliche Ursachen:\n" +
+          "1. Der Refresh Token ist abgelaufen oder ungültig\n" +
+          "2. Die App hat keine Berechtigung für die Orders API\n" +
+          "3. Die IAM-Rolle ist nicht korrekt konfiguriert\n" +
+          "Bitte prüfe die Amazon Seller Central Developer-Einstellungen."
+        );
+      }
       throw new Error(`Orders API Fehler: ${res.status} ${errText}`);
     }
 
@@ -212,31 +257,44 @@ export async function fetchAmazonOrders(createdAfter: string, createdBefore?: st
     }
   } while (nextToken);
 
+  if (!useRdt && allOrders.length > 0) {
+    errors.push("Adressdaten nicht verfügbar (RDT fehlgeschlagen) - Bestellungen werden ohne Adresse importiert");
+  }
+
+  accessToken = await getAccessToken();
+
   for (const order of allOrders) {
     if (order.OrderStatus === "Canceled") continue;
 
     try {
       await sleep(500);
 
-      let itemRdt: string;
+      let itemToken: string;
       try {
-        itemRdt = await getRestrictedDataToken(accessToken, `/orders/v0/orders/${order.AmazonOrderId}/items`);
+        itemToken = await getRestrictedDataToken(accessToken, `/orders/v0/orders/${order.AmazonOrderId}/items`);
       } catch {
-        itemRdt = accessToken;
+        itemToken = accessToken;
       }
 
       const itemUrl = `${SP_API_EU_ENDPOINT}/orders/v0/orders/${order.AmazonOrderId}/items`;
-      const itemRes = await fetchWithRetry(itemUrl, {
+      let itemRes = await fetchWithRetry(itemUrl, {
         headers: {
-          "x-amz-access-token": itemRdt,
+          "x-amz-access-token": itemToken,
           "Content-Type": "application/json",
         },
       });
 
+      if (itemRes.status === 403 && itemToken !== accessToken) {
+        itemRes = await fetchWithRetry(itemUrl, {
+          headers: {
+            "x-amz-access-token": accessToken,
+            "Content-Type": "application/json",
+          },
+        });
+      }
+
       if (!itemRes.ok) {
-        const errText = await itemRes.text();
         errors.push(`Items für ${order.AmazonOrderId}: ${itemRes.status}`);
-        console.warn(`getOrderItems error for ${order.AmazonOrderId}:`, errText);
         continue;
       }
 
