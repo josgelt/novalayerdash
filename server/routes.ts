@@ -514,5 +514,19 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/orders/seed", async (_req, res) => {
+    try {
+      const existing = await storage.getAllOrders();
+      if (existing.length > 0) {
+        return res.json({ message: "Datenbank enthält bereits Daten", existing: existing.length });
+      }
+      const seedData = require("./seed_data.json");
+      const result = await storage.createOrders(seedData);
+      res.json({ success: true, imported: result.imported, duplicates: result.duplicates });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
