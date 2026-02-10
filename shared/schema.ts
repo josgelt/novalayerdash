@@ -24,6 +24,7 @@ export const orders = pgTable("orders", {
   price: text("price"),
   shippingCost: text("shipping_cost"),
   customerType: text("customer_type").notNull().default("Privat"),
+  shipper: text("shipper"),
   shippingCarrier: text("shipping_carrier"),
   trackingNumber: text("tracking_number"),
   shippingDate: text("shipping_date"),

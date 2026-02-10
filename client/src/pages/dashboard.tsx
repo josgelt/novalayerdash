@@ -303,7 +303,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <ScrollArea className="w-full">
-              <div className="min-w-[1600px]">
+              <div className="min-w-[1400px]">
                 <table className="w-full text-sm" data-testid="table-orders">
                   <thead>
                     <tr className="border-b bg-muted/40">
@@ -314,9 +314,8 @@ export default function Dashboard() {
                       <th className="text-left p-3 font-medium text-muted-foreground">Adresse</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Artikel</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Menge</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">Preis</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">Versandkosten</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Typ</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Versender</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Versand</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Aktionen</th>
@@ -332,7 +331,7 @@ export default function Dashboard() {
                         <td className="p-3"><PlatformBadge platform={order.platform} /></td>
                         <td className="p-3 whitespace-nowrap">{formatDate(order.purchaseDate)}</td>
                         <td className="p-3">
-                          <span className="font-mono text-xs text-muted-foreground">{order.orderItemId}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{order.orderId}</span>
                         </td>
                         <td className="p-3">
                           <div className="font-medium">{order.firstName} {order.lastName}</div>
@@ -354,16 +353,25 @@ export default function Dashboard() {
                           {order.sku && <div className="text-xs text-muted-foreground font-mono">{order.sku}</div>}
                         </td>
                         <td className="p-3 text-center">{order.quantity}</td>
-                        <td className="p-3 text-right whitespace-nowrap">
-                          {order.price ? `${order.price} \u20AC` : "-"}
-                        </td>
-                        <td className="p-3 text-right whitespace-nowrap">
-                          {order.shippingCost ? `${order.shippingCost} \u20AC` : "-"}
-                        </td>
                         <td className="p-3">
                           <Badge variant={order.customerType === "Firma" ? "default" : "secondary"} className={order.customerType === "Firma" ? "bg-blue-600 text-white" : ""}>
                             {order.customerType}
                           </Badge>
+                        </td>
+                        <td className="p-3">
+                          <Select
+                            value={order.shipper || ""}
+                            onValueChange={(value) => updateMutation.mutate({ id: order.id, data: { shipper: value } })}
+                          >
+                            <SelectTrigger className="h-8 w-[130px] text-xs" data-testid={`select-shipper-${order.id}`}>
+                              <SelectValue placeholder="Auswählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Senddrop">Senddrop</SelectItem>
+                              <SelectItem value="Sendcloud">Sendcloud</SelectItem>
+                              <SelectItem value="LogoiX">LogoiX</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </td>
                         <td className="p-3">
                           {order.shippingCarrier ? (
@@ -471,7 +479,7 @@ export default function Dashboard() {
               <div className="rounded-md bg-muted/50 p-3 text-sm">
                 <div className="font-medium">{editOrder.firstName} {editOrder.lastName}</div>
                 <div className="text-muted-foreground">{editOrder.productName}</div>
-                <div className="text-xs text-muted-foreground mt-1">Order: {editOrder.orderItemId}</div>
+                <div className="text-xs text-muted-foreground mt-1">Order: {editOrder.orderId}</div>
               </div>
               <Separator />
               <div className="space-y-3">
