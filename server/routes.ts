@@ -295,6 +295,9 @@ export async function registerRoutes(
 
         const trackingNum = (r["Paketnummer Lieferant"] || "").trim();
         const carrier = (r["Lieferant"] || "").trim();
+
+        if (!trackingNum || !/^\d{5,}$/.test(trackingNum)) continue;
+
         const csvName = (r["Name"] || "").trim().toLowerCase();
         const csvPhone = (r["Tel"] || "").trim().replace(/[\s\-\+]/g, "");
         const csvOrt = (r["Ort"] || "").trim().toLowerCase();
