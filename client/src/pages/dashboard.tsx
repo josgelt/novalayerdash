@@ -452,7 +452,7 @@ export default function Dashboard() {
                           <span className="font-mono text-xs text-muted-foreground">{order.orderId}</span>
                         </td>
                         <td className="px-2 py-1 text-xs">
-                          <div className="max-w-[300px] truncate" title={order.productName || ""}>
+                          <div className="max-w-[400px] truncate" title={order.productName || ""}>
                             {order.productName || "-"}
                           </div>
                           {order.sku && <div className="text-muted-foreground font-mono">{order.sku}</div>}
