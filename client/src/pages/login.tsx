@@ -54,7 +54,6 @@ export default function Login({ onLogin }: LoginProps) {
               className="h-20 object-contain"
               data-testid="img-login-logo"
             />
-            <p className="text-sm text-muted-foreground">Order Dashboard</p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
