@@ -132,27 +132,45 @@ export default function Dashboard() {
 
   const handleImport = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    try {
-      const res = await fetch("/api/orders/import", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message);
+    const input = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement;
+    const files = input?.files;
+    if (!files || files.length === 0) return;
+
+    let totalImported = 0;
+    let totalDuplicates = 0;
+    let errors: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const formData = new FormData();
+      formData.append("file", files[i]);
+      try {
+        const res = await fetch("/api/orders/import", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          errors.push(`${files[i].name}: ${err.message}`);
+          continue;
+        }
+        const result = await res.json();
+        totalImported += result.imported;
+        totalDuplicates += result.duplicates;
+      } catch (error: any) {
+        errors.push(`${files[i].name}: ${error.message}`);
       }
-      const result = await res.json();
-      setImportResult(result);
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      if (result.duplicates === 0) {
-        toast({ title: "Import erfolgreich", description: `${result.imported} Bestellungen importiert` });
-        setImportOpen(false);
-        setImportResult(null);
-      }
-    } catch (error: any) {
-      toast({ title: "Import fehlgeschlagen", description: error.message, variant: "destructive" });
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    setImportResult({ imported: totalImported, duplicates: totalDuplicates });
+
+    if (errors.length > 0) {
+      toast({ title: "Teilweise fehlgeschlagen", description: errors.join(", "), variant: "destructive" });
+    } else if (totalDuplicates === 0) {
+      toast({ title: "Import erfolgreich", description: `${totalImported} Bestellungen aus ${files.length} Datei(en) importiert` });
+      setImportOpen(false);
+      setImportResult(null);
     }
   };
 
@@ -553,7 +571,7 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Bestellungen importieren</DialogTitle>
             <DialogDescription>
-              Lade eine Amazon (.txt) oder eBay (.csv) Exportdatei hoch. Die Plattform wird automatisch erkannt.
+              Lade eine oder mehrere Amazon (.txt) oder eBay (.csv) Exportdateien hoch. Die Plattform wird automatisch erkannt.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleImport} className="space-y-4">
@@ -563,10 +581,11 @@ export default function Dashboard() {
                 type="file"
                 name="file"
                 accept=".txt,.csv,.tsv"
+                multiple
                 className="max-w-xs mx-auto"
                 data-testid="input-file-upload"
               />
-              <p className="text-xs text-muted-foreground mt-2">TSV (Amazon) oder CSV (eBay) Dateien</p>
+              <p className="text-xs text-muted-foreground mt-2">Mehrere TSV (Amazon) oder CSV (eBay) Dateien möglich</p>
             </div>
             {importResult && (
               <div className="space-y-2">
