@@ -430,6 +430,7 @@ export default function Dashboard() {
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Order ID</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Kunde</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Adresse</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Land</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Artikel</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Menge</th>
                       <th className="text-left px-2 py-1.5 text-xs font-medium text-muted-foreground">Versender</th>
@@ -452,15 +453,14 @@ export default function Dashboard() {
                         </td>
                         <td className="px-2 py-1 text-xs">
                           <div>{order.firstName} {order.lastName}</div>
-                          {order.email && <div className="text-muted-foreground truncate max-w-[180px]">{order.email}</div>}
                           {order.phone && <div className="text-muted-foreground">{order.phone}</div>}
                         </td>
                         <td className="px-2 py-1 text-xs">
                           {order.street && <div>{order.street}</div>}
                           {order.contactPerson && <div className="text-muted-foreground">{order.contactPerson}</div>}
                           <div>{order.postalCode} {order.city}</div>
-                          <div className="text-muted-foreground">{order.country}</div>
                         </td>
+                        <td className="px-2 py-1 text-xs">{order.country}</td>
                         <td className="px-2 py-1 text-xs">
                           <div className="max-w-[200px] truncate" title={order.productName || ""}>
                             {order.productName || "-"}
