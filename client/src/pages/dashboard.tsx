@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Package, Truck, Calendar, Globe, Filter, Trash2, Edit3, X, Check, Search, FileText, AlertTriangle } from "lucide-react";
-import logoPath from "@assets/5285709155_1770718268325.png";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -209,17 +208,7 @@ export default function Dashboard() {
   const shippedOrders = filteredOrders.filter(o => o.status === "Versendet").length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-center gap-3">
-            <Package className="w-6 h-6 text-primary" />
-            <h1 className="text-xl font-semibold tracking-tight" data-testid="text-header-title">Novalayer Order Dashboard</h1>
-          </div>
-          <img src={logoPath} alt="Novalayer Logo" className="h-16 object-contain" data-testid="img-logo" />
-        </div>
-      </header>
-
+    <div>
       <main className="p-6 space-y-6 max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="p-4">
