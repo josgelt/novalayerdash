@@ -58,6 +58,9 @@ export default function Dashboard() {
 
   const [importResult, setImportResult] = useState<{ imported: number; duplicates: number; duplicateIds: string[] } | null>(null);
 
+  const [shippingImportOpen, setShippingImportOpen] = useState(false);
+  const [shippingImportResult, setShippingImportResult] = useState<{ updated: number; notFound: string[] } | null>(null);
+
   const buildQueryString = () => {
     const params = new URLSearchParams();
     if (dateFrom) params.set("dateFrom", dateFrom);
@@ -123,6 +126,32 @@ export default function Dashboard() {
         toast({ title: "Import erfolgreich", description: `${result.imported} Bestellungen importiert` });
         setImportOpen(false);
         setImportResult(null);
+      }
+    } catch (error: any) {
+      toast({ title: "Import fehlgeschlagen", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleShippingImport = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    try {
+      const res = await fetch("/api/orders/import-shipping", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message);
+      }
+      const result = await res.json();
+      setShippingImportResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      if (result.notFound.length === 0) {
+        toast({ title: "Versandliste importiert", description: `${result.updated} Bestellungen aktualisiert` });
+        setShippingImportOpen(false);
+        setShippingImportResult(null);
       }
     } catch (error: any) {
       toast({ title: "Import fehlgeschlagen", description: error.message, variant: "destructive" });
@@ -292,7 +321,11 @@ export default function Dashboard() {
                 />
               </div>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="outline" onClick={() => setShippingImportOpen(true)} data-testid="button-import-shipping">
+                <Truck className="w-4 h-4 mr-2" />
+                Versandliste
+              </Button>
               <Button onClick={() => setImportOpen(true)} data-testid="button-import">
                 <Upload className="w-4 h-4 mr-2" />
                 Importieren
@@ -329,7 +362,6 @@ export default function Dashboard() {
                       <th className="text-left p-3 font-medium text-muted-foreground">Adresse</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Artikel</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Menge</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Typ</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Versender</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Versand</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
@@ -368,11 +400,6 @@ export default function Dashboard() {
                           {order.sku && <div className="text-xs text-muted-foreground font-mono">{order.sku}</div>}
                         </td>
                         <td className="p-3 text-center">{order.quantity}</td>
-                        <td className="p-3">
-                          <Badge variant={order.customerType === "Firma" ? "default" : "secondary"} className={order.customerType === "Firma" ? "bg-blue-600 text-white" : ""}>
-                            {order.customerType}
-                          </Badge>
-                        </td>
                         <td className="p-3">
                           <Select
                             value={order.shipper || ""}
@@ -474,6 +501,61 @@ export default function Dashboard() {
                 Abbrechen
               </Button>
               <Button type="submit" data-testid="button-submit-import">
+                Importieren
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={shippingImportOpen} onOpenChange={(open) => { setShippingImportOpen(open); if (!open) setShippingImportResult(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Versandliste importieren</DialogTitle>
+            <DialogDescription>
+              Lade eine Versandliste (.csv) hoch. Versanddienstleister und Paketnummer werden automatisch den bestehenden Bestellungen zugeordnet. Versender wird auf LogoiX gesetzt.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleShippingImport} className="space-y-4">
+            <div className="border-2 border-dashed rounded-md p-6 text-center">
+              <Truck className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <Input
+                type="file"
+                name="file"
+                accept=".csv"
+                className="max-w-xs mx-auto"
+                data-testid="input-shipping-file-upload"
+              />
+              <p className="text-xs text-muted-foreground mt-2">CSV Versandliste mit Referenz und Paketnummer</p>
+            </div>
+            {shippingImportResult && (
+              <div className="space-y-2">
+                {shippingImportResult.updated > 0 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>{shippingImportResult.updated} Bestellungen aktualisiert</span>
+                  </div>
+                )}
+                {shippingImportResult.notFound.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm text-amber-600">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div>{shippingImportResult.notFound.length} Referenzen nicht gefunden:</div>
+                      <ul className="mt-1 text-xs font-mono">
+                        {shippingImportResult.notFound.map((ref) => (
+                          <li key={ref}>{ref}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setShippingImportOpen(false); setShippingImportResult(null); }}>
+                Abbrechen
+              </Button>
+              <Button type="submit" data-testid="button-submit-shipping-import">
                 Importieren
               </Button>
             </DialogFooter>

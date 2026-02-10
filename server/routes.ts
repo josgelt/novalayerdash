@@ -259,6 +259,64 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/orders/import-shipping", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Keine Datei hochgeladen" });
+      }
+
+      let content = req.file.buffer.toString("utf-8");
+      content = content.replace(/="/g, '"');
+
+      let parsed: { records: Record<string, string>[]; delimiter: string };
+      try {
+        parsed = parseFile(content);
+      } catch (parseError) {
+        return res.status(400).json({ message: "Datei konnte nicht gelesen werden. Bitte prüfe das Format." });
+      }
+
+      const { records } = parsed;
+
+      if (records.length === 0) {
+        return res.status(400).json({ message: "Keine Datensätze in der Datei gefunden" });
+      }
+
+      let updated = 0;
+      const notFound: string[] = [];
+      const today = new Date().toISOString().split("T")[0];
+
+      for (const r of records) {
+        const referenz = (r["Referenz"] || "").trim();
+        if (!referenz) continue;
+
+        const trackingNum = (r["Paketnummer Lieferant"] || "").trim();
+
+        const carrier = (r["Lieferant"] || "").trim();
+
+        const matchingOrders = await storage.getOrdersByOrderId(referenz);
+        if (matchingOrders.length === 0) {
+          notFound.push(referenz);
+          continue;
+        }
+
+        for (const order of matchingOrders) {
+          await storage.updateOrder(order.id, {
+            shippingCarrier: carrier || null,
+            trackingNumber: trackingNum || null,
+            shippingDate: today,
+            shipper: "LogoiX",
+          });
+          updated++;
+        }
+      }
+
+      res.json({ updated, notFound });
+    } catch (error) {
+      console.error("Shipping import error:", error);
+      res.status(500).json({ message: "Fehler beim Import der Versandliste" });
+    }
+  });
+
   app.patch("/api/orders/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
