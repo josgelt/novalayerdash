@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Package, Truck, Calendar, Globe, Filter, Trash2, Edit3, X, Check, Search, FileText, AlertTriangle } from "lucide-react";
+import { Upload, Package, Truck, Calendar, Globe, Filter, Trash2, Edit3, X, Check, Search, FileText, AlertTriangle, Download } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -364,6 +364,29 @@ export default function Dashboard() {
               <Button variant="destructive" onClick={() => setDeleteAllConfirm(true)} data-testid="button-delete-all">
                 <Trash2 className="w-4 h-4 mr-2" />
                 Alle löschen
+              </Button>
+              <Button
+                variant="outline"
+                data-testid="button-export-logoix"
+                onClick={async () => {
+                  const res = await fetch("/api/orders/export-logoix");
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({ message: "Export fehlgeschlagen" }));
+                    toast({ title: "Export fehlgeschlagen", description: err.message, variant: "destructive" });
+                    return;
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `logoix_export_${new Date().toISOString().split("T")[0]}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast({ title: "Export erfolgreich", description: "LogoiX CSV wurde heruntergeladen." });
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export LogoiX
               </Button>
               <Button variant="outline" onClick={() => setShippingImportOpen(true)} data-testid="button-import-shipping">
                 <Truck className="w-4 h-4 mr-2" />

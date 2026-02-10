@@ -36,6 +36,7 @@ Order management dashboard for Amazon and eBay sellers. Import order files (TSV/
 - `POST /api/orders/import` - Import file (multipart form, field: "file")
 - `POST /api/orders/import-shipping` - Import shipping list CSV (matches Referenz to orderId, sets carrier/tracking/shipper)
 - `POST /api/orders/fetch-amazon` - Fetch orders from Amazon SP-API (body: createdAfter, createdBefore)
+- `GET /api/orders/export-logoix` - Export open orders as LogoiX CSV (semicolon-delimited, UTF-8 BOM, groups by orderId, articles as [qty]x[sku] comma-separated)
 - `PATCH /api/orders/:id` - Update order (shipping details, shipper)
 - `DELETE /api/orders/:id` - Delete order
 

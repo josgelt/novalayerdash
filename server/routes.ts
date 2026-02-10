@@ -401,6 +401,110 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/orders/export-logoix", async (req, res) => {
+    try {
+      const allOrders = await storage.getOrders({});
+      const openOrders = allOrders.filter((o) => o.status === "Offen");
+
+      if (openOrders.length === 0) {
+        return res.status(404).json({ message: "Keine offenen Bestellungen zum Exportieren vorhanden" });
+      }
+
+      const grouped = new Map<string, typeof openOrders>();
+      for (const order of openOrders) {
+        const key = order.orderId;
+        if (!grouped.has(key)) {
+          grouped.set(key, []);
+        }
+        grouped.get(key)!.push(order);
+      }
+
+      const csvHeaders = [
+        "Plattform", "Bestelldatum", "Bestellnummer", "E-Mail", "Telefon",
+        "Vorname", "Nachname", "Straße", "Ansprechpartner", "Stadt",
+        "PLZ", "Land", "Artikel", "Preis", "Versandkosten", "Kundentyp"
+      ];
+
+      const csvRows: string[][] = [];
+
+      const groupedEntries = Array.from(grouped.entries());
+      for (const [orderId, items] of groupedEntries) {
+        const first = items[0];
+
+        const articleParts: string[] = [];
+        for (const item of items) {
+          const sku = item.sku || "UNKNOWN";
+          const qty = item.quantity || 1;
+          if (qty === 1 && items.length === 1) {
+            articleParts.push(sku);
+          } else {
+            articleParts.push(`${qty}x${sku}`);
+          }
+        }
+        const articleStr = articleParts.join(",");
+
+        let totalPrice = 0;
+        for (const item of items) {
+          const p = parseFloat(item.price || "0");
+          if (!isNaN(p)) totalPrice += p;
+        }
+
+        let totalShipping = 0;
+        for (const item of items) {
+          const s = parseFloat(item.shippingCost || "0");
+          if (!isNaN(s)) totalShipping += s;
+        }
+
+        const purchaseDate = first.purchaseDate ? (() => {
+          try {
+            const d = new Date(first.purchaseDate);
+            return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+          } catch {
+            return first.purchaseDate;
+          }
+        })() : "";
+
+        csvRows.push([
+          first.platform || "",
+          purchaseDate,
+          orderId,
+          first.email || "",
+          first.phone || "",
+          first.firstName || "",
+          first.lastName || "",
+          first.street || "",
+          first.contactPerson || "",
+          first.city || "",
+          first.postalCode || "",
+          first.country || "",
+          articleStr,
+          (totalPrice / 100).toFixed(2).replace(".", ","),
+          (totalShipping / 100).toFixed(2).replace(".", ","),
+          first.customerType || "Privat",
+        ]);
+      }
+
+      const escapeCsvField = (field: string): string => {
+        if (field.includes(";") || field.includes('"') || field.includes("\n")) {
+          return `"${field.replace(/"/g, '""')}"`;
+        }
+        return field;
+      };
+
+      const csvContent = [
+        csvHeaders.join(";"),
+        ...csvRows.map((row) => row.map(escapeCsvField).join(";"))
+      ].join("\n");
+
+      const bom = "\uFEFF";
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="logoix_export_${new Date().toISOString().split("T")[0]}.csv"`);
+      res.send(bom + csvContent);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Fehler beim Export" });
+    }
+  });
+
   app.delete("/api/orders", async (req, res) => {
     try {
       const count = await storage.deleteAllOrders();

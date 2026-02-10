@@ -1,0 +1,33 @@
+Beschreiben Sie die Netzwerkschutzkontrollen, die von Ihrem Unternehmen verwendet werden, um den öffentlichen Zugriff auf Datenbanken, Dateiserver und Desktop-/Entwicklerendpunkte einzuschränken.
+
+Beschreibe, wie deine Organisation Mitarbeiter mit Zugriff auf Amazon-Informationen individuell identifiziert. Erläutere, wie es den Zugriff der Mitarbeiter auf Amazon-Informationen einschränkt, je nachdem, was sie wissen müssen.
+
+Beschreibe den Überwachungsmechanismus, den deine Organisation einsetzt, um zu verhindern, dass Mitarbeiter von privaten Geräten (USB-Sticks, Mobiltelefonen) auf Amazon-Informationen zugreifen. Gib an, wie deine Organisation bei solchen Vorfällen gewarnt wird.
+
+
+Geben Sie die Datenschutz- und Datenverarbeitungsrichtlinien Ihres Unternehmens an, um zu beschreiben, wie Amazon-Daten erhoben, verarbeitet, gespeichert, verwendet, weitergegeben und vernichtet werden. Sie können hierzu die URL einer öffentlichen Website angeben.
+Beschreibe, wie deine Organisation Amazon-Informationen im Ruhezustand speichert, einschließlich: (a) Verschlüsselungsmethoden (AES-128, RSA-2048 usw.) und (b) Schlüsselverwaltungssysteme.
+
+Beschreibe, wie dein Unternehmen verschlüsselte Backups/Archive von Amazon-Informationen speichert, einschließlich: (a) geografisch getrennter Sicherungsspeicherort und (b) Wiederherstellungsverfahren (RTO/RPO).
+
+Beschreibe deine Sicherheitsprotokollierungs- und Überwachungssystem, einschließlich der Überwachungsmechanismen für verdächtige Aktivitäten und der Verfahren zur Untersuchung von Vorfällen.
+
+Beschreibe deine Sicherheitsprotokollierungs- und Überwachungssystem, einschließlich der Überwachungsmechanismen für verdächtige Aktivitäten und der Verfahren zur Untersuchung von Vorfällen.
+
+Fassen Sie die Schritte zusammen, die im Vorfallreaktionsplan Ihres Unternehmens enthalten sind, um mit Datenbankhacks, unbefugtem Zugriff und Datenlecks umzugehen.
+
+Wie setzt du die Passwortverwaltungspraktiken für alle Systeme durch, die Amazon-Informationen in deinem Unternehmen verarbeiten, hinsichtlich der erforderlichen Länge, Komplexität und Ablaufdauer?
+
+Wie werden personenbezogene Daten (PII) während Tests geschützt?
+
+Welche Maßnahmen werden ergriffen, um die Offenlegung von Anmeldeinformationen zu verhindern?
+
+Wie verfolgt dein Unternehmen den Fortschritt der Behebung von Mängeln, die bei Schwachstellenscans und Penetrationstests festgestellt wurden?
+
+Wie gehen Sie mit Code-Schwachstellen um, die im Entwicklungszyklus und während der Laufzeit identifiziert wurden?
+
+
+
+
+
+
