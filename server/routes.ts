@@ -421,7 +421,7 @@ export async function registerRoutes(
 
       const csvHeaders = [
         "Plattform", "Bestelldatum", "Bestellnummer", "E-Mail", "Telefon",
-        "Vorname", "Nachname", "Straße", "Ansprechpartner", "Stadt",
+        "Vorname", "Nachname", "Ansprechpartner", "Straße", "Stadt",
         "PLZ", "Land", "Artikel", "Preis", "Versandkosten", "Kundentyp"
       ];
 
@@ -472,8 +472,8 @@ export async function registerRoutes(
           first.phone || "",
           first.firstName || "",
           first.lastName || "",
-          first.street || "",
           first.contactPerson || "",
+          first.street || "",
           first.city || "",
           first.postalCode || "",
           first.country || "",
